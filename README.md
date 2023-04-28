@@ -19,7 +19,7 @@ The data used in this project is from the Kaggle competition to predict restaura
 
 Tools Used
 
-The project was completed using R and the following packages: dplyr, ggplot2, caret, and glmnet.
+The project was completed using R and the following packages: dplyr, tidyverse, rsample, glmnet, yardstick, tidymodels, lubridate, stats, ggplotify, gridExtra, .
 
 Results
 
