@@ -1,0 +1,454 @@
+---
+title: "ETC3250/5250 IML Asignment 1 Solution"
+author: "Thanh Van Tran - 32678479"
+date: "`r Sys.Date()`"
+---
+
+
+```{r, message = FALSE}
+# Load the packages that you will use to complete this assignment.
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(rsample)
+library(glmnet)
+library(dplyr)
+library(yardstick)
+library(tidymodels)
+library(lubridate)
+library(stats)
+library(ggplotify)
+library(gridExtra)  
+```
+
+\newpage
+
+## A. Preliminary analysis 
+
+*1. Load your downloaded data into R as a `tibble` object, ensuring each variable is encoded appropriately, and display the first 10 rows of your data set.* **(1 mark)**
+
+INCLUDE YOUR ANSWER HERE
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+data32678479 <- 
+  read_csv("/Users/thanhvantran/Desktop/Assignment1_ThanhVanTran_32678479/data32678479.csv")
+mydata <- as_tibble(data32678479)
+mydata$id <- as.character(mydata$id)
+mydata$type <- as.factor(mydata$type)
+head(mydata, 10)
+```
+
+
+*2. Construct a new variable called `age` that corresponds to the age of the restaurant (in years) at 1st January, 2015. Show the histogram of this `age` variable.* **(1 mark)**
+
+INCLUDE YOUR ANSWER HERE
+
+The age of the restaurant are not rounded up to ensure the accuracy of the coefficient and the predicted value in case variable "age" is included in the model. 
+```{r}
+#INCLUDE YOUR R CODE HERE
+#time_length
+mydata$open_date <- as.Date(mydata$open_date, format = "%m/%d/%Y")
+mydata <- mydata %>%
+  mutate(age = interval(ymd(mydata$open_date),ymd(as.Date('2015-01-01'))))
+mydata$age <- time_length(mydata$age, "year")
+ggplot(data = mydata, aes(age)) +
+  geom_histogram(color = "black", fill = "pink", bins = 30) +
+  labs(x = "age", title = "Histogram of restaurant age")
+```
+
+*3. Produce a pair-wise scatter plot of each _numerical_ variable against the response. What do you notice from the plot? Make another plot for each of the numerical variable against the response that better shows the relationship between the two variables.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+Based on the scatter plot, it appears that variables P1 through P8 are discrete variables that have already been converted to numeric values. It makes sense from the information that P1-P8 are either demographic, real estate or commercial information of the restaurants.
+
+- There are less restaurant type mobile than others, and their revenue does not vary as much as other restaurant types. Food court, Inline and drive through have quite similar revenue. 
+
+- Upon examining P1, there are four distinct values: 4, 8, 10, and 15. Interestingly, the revenue of restaurants with a P1 value of 4 is similar to that of restaurants with a P1 value of 8 or 10. However, restaurants with a P1 value of 4 or 10 tend to have slightly higher revenues than those with a P1 value of 8. 
+
+- The variable P2 has eight distinct values: 1, 2, 3, 4, 5, 8, and 10. There are a lower frequency of observations for P2 = 8 compared to the other values. Additionally, the revenue of restaurants in each category of P2 is relatively similar, except for P2 = 8 which appears to have a higher revenue. However, this difference in revenue may be influenced by the smaller number of observations for P2 = 8. 
+
+- The variable P3 has nine distinct values: 1, 2, 3, 4, 5, 10, 15, 20, and 25. After conducting preliminary analysis, we observed that the revenue of restaurants with P3 values smaller than or equal to 5 has highest revenue and their revenue are quite similar. However, we also noticed that the revenue appears to decrease as the P3 value increases to 10, 15, 20, and 25.
+
+- The variable P4 has five distinct values: 1, 2, 3, 4, and 5. The revenue of restaurants in different categorical levels of P4 are quite similar.
+
+- The variable P5 has seven distinct values: 2, 3, 4, 5, 6, 8, and 10. It was observed that there are fewer observations in P5 values of 2, 6, and 8 compared to the other P5 values. The revenue in these three P5 categories also does not vary as much as the other P5 categories, and it is may due to the smaller sample size of observations in these categories.
+
+- The variable P6 has eight distinct values: 1, 2, 3, 4, 5, 6, 8, 10. The revenue of restaurant that has P6 lower than or equal to 6 is quite similar. However, we have less observation when P6 equal to 8 and 10, the revenue in these categorical do not vary as much as other categorical. 
+
+- The variable P7 has eight distinct values: 0, 1, 2, 2.5, 3, 5, 7.5, 10. We have less observation when P7 = 10. The revenue of other categorical in P7 also varies than other. 
+
+- The variable P8 has eight distinct values: 1, 2, 3, 4, 5, 6, 8, 10. We have less observation when p8 = 1. And there are no obvious trend between P8 and revenue was obtained. 
+
+- Upon analyzing the distribution of restaurant ages, it is clear that there are more observations for restaurants that are younger than approximately 12 years old, and for those that are older than 15 years old. Conversely, there are fewer observations for restaurants between the ages of 12 and 15. There are no a strong relationship between age and revenue. For instance, there are older restaurants with relatively low revenues, as well as younger restaurants with very high revenues. As age is a continuous numerical variable, a scatter plot is an appropriate visualization to display the relationship between age and revenue.
+
+- The box plot was selected to analyze the relationship between the discrete numerical variables, P1-P8, and the response variable, revenue. This is because there are limited values within each variable. Same with what we observed in the scatter plot, there is a negative relationship between P3 and revenue, indicating that as the value of P3 increases, revenue tends to decrease. However, there are no clear relationships between P1, P2, P4, P5, P6, P7, P8, and revenue. 
+
+- The age is the continuous numerical variabls, so the scatter plot work well in showing the relationship between age and revenue. 
+
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+numerical_vars <- c("P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "age")
+response_var <- c("revenue")
+plotP1 <- ggplot(mydata, aes(P1, revenue)) + geom_point()
+plotP2 <- ggplot(mydata, aes(P2, revenue)) + geom_point()
+plotP3 <- ggplot(mydata, aes(P3, revenue)) + geom_point()
+plotP4 <- ggplot(mydata, aes(P4, revenue)) + geom_point()
+plotP5 <- ggplot(mydata, aes(P5, revenue)) + geom_point()
+plotP6 <- ggplot(mydata, aes(P6, revenue)) + geom_point()
+plotP7 <- ggplot(mydata, aes(P7, revenue)) + geom_point()
+plotP8 <- ggplot(mydata, aes(P8, revenue)) + geom_point()
+plotage <- ggplot(mydata, aes(age, revenue)) + geom_point()
+grid.arrange(plotP1, plotP2, plotP3, plotP4, plotP5, plotP6, plotP7, plotP8, plotage, ncol = 3)   
+
+#box plot is chosen to show the relationship between P1-P8 and revenue
+ggplot(data = mydata, aes(x = as.factor(P1), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P1", title = "Boxplots of P1 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P2), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P2", title = "Boxplots of P2 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P3), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P3", title = "Boxplots of P3 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P4), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P4", title = "Boxplots of P4 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P5), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P5", title = "Boxplots of P5 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P6), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P6", title = "Boxplots of P6 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P7), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P7", title = "Boxplots of P7 against Revenue")
+
+ggplot(data = mydata, aes(x = as.factor(P8), y = revenue)) +
+  geom_boxplot() +
+  labs(x = "P8", title = "Boxplots of P8 against Revenue")
+
+```
+
+*4. Produce a numerical summary of all the variables in the data set.* **(1 mark)**
+
+INCLUDE YOUR ANSWER HERE
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+summary(mydata)
+```
+
+*5. Using the preliminary exploration in questions 1 to 4, do you observe any patterns in the data? Should you use the variable `id` and `open_date` in your predictive model? Explain your answer.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-There is one pattern between P3 and revenue can be observed in the data. When the value of P3 decrease, the revenue increase. There are no clear relationship between revenue and P1, P2, P4, P5, P6, P7, P8.
+
+-In the common sense, the older restaurant will earn higher revenue. But it is not the case in this data. The revenue variety from low to high for both young and old restaurant. 
+
+-The variables 'id' and 'open_date' should not be used in the predictive model. The 'id' variable serves only to uniquely identify each observation in the data set and does not contain any information that is relevant to the revenue of the restaurants. Similarly, the "open_date" variable represents the day on which each restaurant was opened, which is a decision made by the owner and does not indicate anything about the revenue potential of the restaurant.
+
+-Furthermore, the age of each restaurant was calculated by determining the time elapsed between its opening day and 1/1/2015, which is more relevant to predicting the restaurant's revenue. Therefore, the 'id' and 'open_date' variables should be excluded from the predictive model, and instead using the age variable in predicting restaurant revenue.
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+```
+
+### B Regression
+
+*1. Remove the variables `id` and `open_date` from the data and select 70% of the observations to be used as the training data and the remaining data as the testing data.* **(1 mark)**
+
+INCLUDE YOUR ANSWER HERE
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+set.seed(2023)
+mydataB <- mydata %>% select(-c("id", "open_date"))
+mydata_split <- initial_split(mydataB, prop = 0.7)
+mydata_train <- training(mydata_split)
+mydata_test <- testing(mydata_split)
+```
+
+
+*2. Use the training sample to estimate a multiple linear regression model for `revenue` in terms of all the predictors. Show the summary of this model fit. Discuss how well this model fits the data.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-The R-squared = 0.2904, it means that the model is just explained 29.04% of the data. Hence the model does not fits the data well. 
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+revenue_lm <- lm(revenue ~., data = mydata_train)
+summary(revenue_lm)
+```
+
+*3. Consider a model for `revenue` with all predictors _except_ `type`. Show the summary of this model fit. Compare this model with the fitted model in question B2 using a hypothesis test. Explain the results of this test.* **(3 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-The F-value = 0.4992 which is small, so there is no significant difference between two model and by adding the the variable "type" in model 1 does not provide any additional significant different to what is already captured by the other variables in model 2.
+-Because the F-value is the ratio between the difference of the residual sum of square between two models and the error variance. If two models are significantly different, the ratio will be large and if the ratio is not so large, it means 2 models are not significantly different. 
+```{r}
+#INCLUDE YOUR R CODE HERE
+revenue_lm_3 <-
+  lm(revenue ~ P1 + P2 + P3 + P4 + P5 + P6 + P7 + P8 + age, data = mydata_train)
+summary(revenue_lm_3)
+anova(revenue_lm, revenue_lm_3)
+```
+
+
+*4. Which of the two regression models considered (in questions B2 and B3) is best at predicting new records? Explain your answer.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-From the F-value in question B3, we can say that there is no different between 2 models. However, it does not measure the predictive accuracy of the model and we cannot simply choose the simpler one for prediction purpose. So other metrics RMSE, MAE, MAPE, MPE are employed to compare the predicted values from the model with the actual observed values in the data. 
+
+-With the RMSE metric, the revenue_lm (model include "type" variable) seem perform better than revenue_lm_3 (model exclude "type" variable) . While the other metrics (MAE, MAPE, MPE) indicate that revenue_lm_3 perform better than revenue_lm. This suggest that the revenue_lm_3 works well for almost of data but struggle with the outliers or extreme value. Because RMSE give higher weight to the significant errors which comes from outliers or extreme values, while the other metrics give equal weights to all errors. 
+
+-Between two models revenue_lm and revenue_lm_3, revenue_lm_3 would be better at predicting new records. Because it is priority to use simpler model when there is no significant difference between two model, and it works better with most of the data although it struggle dealing with the outliers or extreme values. 
+
+-However, it is also suggested that further investigation is necessary and other methods should be employed to consider other appropriate models. At the same time, the outliers or extreme values need to be considered when choosing the appropriate models for prediction. 
+```{r}
+#INCLUDE YOUR R CODE HERE
+imap_dfr(list("revenue_lm_3" = revenue_lm_3 ,
+              "revenue_lm" = revenue_lm),
+         ~ {
+           mydata_test %>%
+             mutate(.pred = predict(.x, .),
+                    .model = .y)
+         }) %>%
+  group_by(.model) %>%
+  metric_set(rmse, mae, mape, mpe)(., revenue, .pred) %>%
+  pivot_wider(.metric, names_from = .model, values_from = .estimate)
+```
+
+
+### C Subset selection 
+
+*1. Consider the model in question B2 as the full model. Perform a backward elimination using BIC. Report the final selected model using this process.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-The final selected model using a backward elimination using BIC is 
+revenue = 14596811 - 277053*P3
+```{r}
+#INCLUDE YOUR R CODE HERE
+step <- stats::step
+null <- lm(revenue ~ 1, data = mydata_train)
+scope <- list(lower = formula(null),
+              upper = formula(revenue_lm))
+step(revenue_lm,
+     scope = scope,
+     direction = "backward",
+     k = log(nrow(mydata_train)))
+```
+
+*2. Again consider the same model question B2 and perform now a step-wise regression using AIC. How is this model different to the one selected in question C1?* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-The final selected model using a step-wise regression using AIC is 
+revenue = 14714499 - 278036*P3 - 46884*P1 + 47557*P7. 
+
+-While the model chose by a backward elimination using BIC just contains 1 variable P3, the model chosen by a step-wise regression using AIC contains 3 variables P1, P3 and P7. 
+```{r}
+#INCLUDE YOUR R CODE HERE
+step(null, scope = scope, direction = "both", k = 2)
+```
+
+
+### D Regularization 
+
+*1. Make an appropriate transformation to the training data for regularization methods. From this transformed training dataset, create a 5-fold cross validation dataset.*  **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+mydata_train_recipe <- recipe(revenue ~., data = training(mydata_split)) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors()) %>%
+# step_log(all_outcomes(), base = 10) %>%
+  prep()
+
+mydata_training <- mydata_train_recipe %>%
+  bake(new_data = NULL)
+
+mydata_testing <- mydata_train_recipe %>%
+  bake(new_data = testing(mydata_split))
+
+revenue_fold <- vfold_cv(mydata_training, v = 5)
+```
+
+
+*2. Using the dataset from question D1, select the optimal tuning parameter $\lambda$ for lasso regression using the average root mean square error. You can use the search range for $\lambda$ to be $[1, 10^{10}]$ (or in code use ` 10^seq(0, 10, length = 50)`). You should _not_ use any convenience function like `cv.glmnet` to select $\lambda$.*   **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+lambda_vec <- 10 ^ seq(0, 10, length.out = 50)
+
+cv_glmnet_to_revenue <- function(alpha) {
+  revenue_fold %>%
+    mutate(metrics = map(splits, function(.split) {
+      fold_train_data <- training(.split)
+      fold_fit <- glmnet(
+        x = fold_train_data %>%
+          select(-revenue),
+        y = fold_train_data$revenue,
+        alpha = alpha,
+        lambda = lambda_vec
+      )
+      fold_test_data <- testing(.split)
+      fold_preds <- fold_fit %>%
+        predict(as.matrix(select(fold_test_data, -revenue))) %>%
+        as.data.frame() %>%
+        add_column(revenue = fold_test_data$revenue) %>%
+        pivot_longer(-revenue, values_to = ".pred", names_to = "name") %>%
+        left_join(tibble(
+          name = paste0("s", 1:length(lambda_vec) - 1),
+          lambda = rev(lambda_vec)
+        ),
+        by = "name")
+      fold_preds %>%
+        group_by(name, lambda) %>%
+        metric_set(rmse)(., revenue, .pred) %>%
+        select(-.estimator) %>%
+        arrange(.metric, lambda)
+    })) %>%
+    unnest(metrics) %>%
+    group_by(name, .metric) %>%
+    summarise(
+      alpha = alpha,
+      lambda = unique(lambda),
+      mean = mean(.estimate),
+      se = sd(.estimate),
+      .groups = "drop"
+    )
+}
+lasso_tuning_res <- cv_glmnet_to_revenue(alpha = 1)
+lasso_tuning_res
+lasso_tuning_res_min <- lasso_tuning_res %>%
+  group_by(.metric) %>%
+  filter(mean == min(mean))
+
+lasso_tuning_res_min
+lambda_chose <- lasso_tuning_res_min %>% pull(lambda)
+```
+- The purpose of the below code section is to select an appropriate range of lambda values for Lasso regression. By plotting the range of lambda values against the root mean squared error (RMSE), we observed that a higher range of lambda values is suitable when the response variable (revenue) is not log-transformed. However, if the response variable is log-transformed, a smaller range of lambda values is more appropriate.
+
+- When the response variable is not log-transformed, the value of revenue may be relatively high compared to the predictor variable, resulting in higher potential values for the regression coefficients. In such cases, a higher value of lambda can fit in and help to constrain the size of the coefficients. This approach ensures that the coefficients will be fit to the range of the response variable and constrained accordingly.
+```{r}
+mydata_tuning_lasso <- cv_glmnet_to_revenue(alpha = 1)
+
+mydata_tuning_lasso_min <- mydata_tuning_lasso %>%
+  group_by(.metric) %>%
+  filter(mean == min(mean))
+
+mydata_tuning_lasso %>%
+  ggplot(aes(lambda, mean)) +
+  geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se)) +
+  geom_line() +
+  geom_point(data = mydata_tuning_lasso_min,
+             color = 'red') +
+  facet_wrap( ~ .metric, scales = "free") +
+  scale_x_log10(name = latex2exp::TeX("\\lambda")) 
+```
+
+*3. Fit an elastic net model with optimal $\lambda$ and $\alpha$ selected by cross validation root mean square error using the dataset from question D2. Recall that $\alpha \in [0, 1]$ (in code you can use `seq(0, 1, length = 21)`). Remember that you need to find a combination of $\lambda$ and $\alpha$ that minimises the average root mean square error. Again don't use any convenience (i.e. one line) function. Discuss the results.* **(4 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+-The lambda and alpha value of the elastic net model to minimise root mean square error is 79060.43 and 1, respectively. It show that the elastic net model now is essentially the lasso regression model in part D2. Hence fitting the elastic net model is similar with fitting the lasso regression model. 
+Hence an elastic net model or the lasso regresison model in this case is 
+revenue = 13562412.7879 - 4111.3463*P1 - 1282743.6893*P3 + 4321.8655*P7
+```{r}
+alpha_vec <- seq(0, 1, length.out = 21)
+combine_result <- tibble()
+for (i in 1:length(alpha_vec)) {
+  combine_result <-
+    bind_rows(combine_result, cv_glmnet_to_revenue(alpha_vec[i]))
+}
+min_RMSE <- combine_result %>%
+  group_by(.metric) %>%
+  filter(mean == min(mean))
+min_RMSE
+
+elastic_best_lamda <- min_RMSE$lambda
+elastic_best_alpha <- min_RMSE$alpha
+elasticreg <- glmnet(
+  x = mydata_training %>%
+    select(-c(revenue)),
+  y = mydata_training$revenue,
+  alpha = elastic_best_alpha,
+  lambda = elastic_best_lamda
+)
+coef(elasticreg)
+```
+
+
+## E. Conclusion 
+
+*1. What variables are important (or not important) in modelling the response? Explain your answer.*  **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+- The variables "ID" and "open_date" were excluded from the model because they do not significantly contribute to predicting whether a restaurant will generate higher revenue or not. 
+
+- From the plot, the trend between the P3 and revenue was detected, the correlation between P3 and revenue is high. It indicated that P3 can be potentially important variable in the model.
+
+- The "type" variable was considered to be included or excluded of the model. The F-test was employed and shown that there was no significant between the model including "type"(revenue_lm) and the model exclude "type"(Revenue_lm_3). Then, the other metrics such as RMSE, MAE, MAPE and MPE were used to measure the accuracy of the predictive value between two models. The result shown that the revenue_lm_3 perform better with almost of the data but it struggle in dealing with the outliers or extreme value. Hence, the other variable selection methods were used to find an appropriate model.
+
+- Then the backward elimination and step regression were employed. In the backward elimination, it suggested that only P3 should be included in the model. While in the step regression, it suggested that P1, P3 and P7 should be included in the model. 
+
+- From the analysis, P3 is the most important variable in the model. The other variables should be considered including in the model is P1 and P7. The "id", "open_date", "type", "P2", "P4", "P5", "P6","P8" can be excluded from the model. 
+```{r}
+#INCLUDE YOUR R CODE HERE
+```
+
+*2. What model would you recommend to TFI for predicting new records? Give statistical reasons for your recommendation.* **(2 marks)**
+
+INCLUDE YOUR ANSWER HERE
+
+- The model chosen by regularisation will start with the model containing all variables, and then the penalty term will constraint the magnitude of the coefficients which shrinks toward to zero. The magnitude of the coefficient will be constraints according to its importance in the model. The more important of the variable, the higher the coefficient is. The less important variable's coefficient will be shrinkage toward zero. 
+
+- Lasso and elastic net were employed to select the recommended model for TFI to predict new record. In this method, the tuning parameter lambda and alpha will be chosen to produce the best model. These parameters defines how hard the regularisation penalty will be. The best alpha and lambda will produce a model which minimise the root mean squared of error. 
+
+- The lambda value for our lasso regression model (alpha = 1) to minimize the RMSE was 79060.43. The alpha and lambda values for our elastic net model to minimize the RMSE also were determined. Interestingly, the results indicated that the elastic net model's alpha was 1, and the lambda value was 79060.43, which means that the elastic net model is effectively a lasso regression model. Therefore, we can confidently use the lasso regression model to predict new records.
+
+- Below is the code used to calculate the RMSE for the predicted values from models chosen by lasso and the true values.
+
+- The RMSE of the model chosen from lasso technique is 2,261,185 which is lower than the RMSE of the model revenue_lm_3 (2,272,682.5). 
+
+- Moreover, the model that is chosen from the lasso is revenue = 13562412.7879 - 4111.3463*P1 - 1282743.6893*P3 + 4321.8655*P7. The variables that were chosen by lasso (P1, P3 and P7) were similar with the variable of the the stepwise regression (P1, P3, P7) which give more confident in the model obtained from lasso. However, the subset selection method (stepwise regression) can choose the important variables but will not guarantee to give us the best model for predicting new records. 
+
+- In conclusion, the model chosen from lasso regularisation would be recommended to TFI for predicting new records.
+
+```{r}
+#INCLUDE YOUR R CODE HERE
+predict <- stats::predict
+#calculate the root mean squared error between the true data and the predict value from
+#the lasso regression
+pred_lasso <- predict(elasticreg,
+                      s = elastic_best_lamda,
+                      newx = as.matrix(mydata_testing %>%
+                                         select(-c(revenue))))
+rmse_vec(as.vector(pred_lasso), mydata_testing$revenue)
+```
+
+
+
+
+
