@@ -1,4 +1,5 @@
-The s# ETC5250---Assignment1---MachineLearning
+# ETC5250---Assignment1---MachineLearning
+
 The ETC5250 (Machine Learning) Assignment (2023, T1) - High Distinction Grade (97%)
 
 ## Restaurant Revenue Prediction
